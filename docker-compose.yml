@@ -1,0 +1,35 @@
+# تشغيل محلي/اختباري. للإنتاج: قاعدة بيانات مُدارة + أسرار من secret manager.
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: skillmarc, POSTGRES_USER: skillmarc_owner, POSTGRES_PASSWORD: "${OWNER_DB_PASSWORD:?set}", APP_DB_PASSWORD: "${APP_DB_PASSWORD:?set}" }
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sh:/docker-entrypoint-initdb.d/00-init.sh:ro
+      - ./db:/sql:ro
+    networks: [internal]            # القاعدة غير منشورة على المضيف نهائياً
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks: [internal]
+  api:
+    build: .
+    env_file: .env
+    depends_on: [db, redis]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [internal]
+  nginx:
+    image: nginx:1.27-alpine
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy:/etc/nginx/skillmarc:ro
+      - ./bridge:/srv/skillmarc/bridge:ro
+      - ./public:/srv/skillmarc/public:ro      # ضع ملف الواجهة هنا باسم index.html (بدون تعديل)
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on: [api]
+    networks: [internal, default]
+volumes: { pgdata: {} }
+networks: { internal: { internal: true } }

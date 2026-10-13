@@ -1,0 +1,14 @@
+# تجربة محلية كاملة (الصفحة + الجسر + الـ API + PostgreSQL) بدون nginx:
+#   docker compose --env-file .env.local -f docker-compose.local.yml up --build
+# ثم افتح http://localhost:8088
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: skillmarc, POSTGRES_USER: skillmarc_owner, POSTGRES_PASSWORD: "${OWNER_DB_PASSWORD}", APP_DB_PASSWORD: "${APP_DB_PASSWORD}" }
+    volumes: [ "pgdata:/var/lib/postgresql/data", "./db/init.sh:/docker-entrypoint-initdb.d/00-init.sh:ro", "./db:/sql:ro" ]
+  api:
+    build: .
+    env_file: .env.local
+    depends_on: [db]
+    ports: ["127.0.0.1:8088:8080"]      # على جهازك فقط
+volumes: { pgdata: {} }
